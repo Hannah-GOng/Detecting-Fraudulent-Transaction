@@ -1,0 +1,146 @@
+---
+title: "Analysis03_hangong2"
+author: "Han Gong (hangong2@illinois.edu)"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document: 
+    theme: cosmo
+  pdf_document: default
+urlcolor: BrickRed
+---
+
+***
+
+# Abstract
+As credit card become a integral part of our daily life, credit card safety becomes an important issue to consumers. Credit card companies need to recognize fraudulent credit card transactions accurately so that customers are not charged for items that they did not purchase. 
+
+The objective of this study is to build models featuring 28 principal components obtained with PCA and amount to identify a certain transaction is fraudulent or genuine. The data was accessed via Kaggle - Credit Card Fraud Detection. The data sets records all the transaction a European cardholder made in September 2013. It presents transactions that occurred in two days, where 492 frauds out of 284,807 transactions was found.
+
+Three modeling techniques were considered: Neural Network models, k-nearest neighbor models, and generalized boosted regression models. According to the result, we find the "best" model among those three is the generalized boosted regression model because they have the highest true positive rate (0.8772) on detecting fraudulent transaction.
+
+The model we create might should be sufficient to make reasonable identification. However, considering that consumer will face huge lost if the fradulent transaction was not detected, additional methods and predictors should be added to improve credit cards' safety.
+
+***
+
+# Introduction & Important
+
+Credit card safety is a huge concern for cardholder's as undetected fradulent tranction may lead to huge monetary lost. The objective of this study is to build models featuring 28 principal components obtained with PCA and amount to identify a certain transaction is fraudulent or genuine. 
+
+Three modeling techniques were considered: Neural Network models, k-nearest neighbor models, and generalized boosted regression models. We want to test the sensitivity of each models to see their ability of identifying a fradulent transaction correctly. If the fradulent transaction is detected by the model, customers are not charged for items that they did not purchase. The sensitivity of the model is tested by 5-fold cross-validation.
+
+***
+
+# Methods
+## Data
+
+The data was accessed via Kaggle - Credit Card Fraud Detection. The data sets records all the transaction a European cardholder made in September 2013. It presents transactions that occurred in two days, where 492 frauds out of 284,807 transactions was found.
+
+It contains only numerical input variables which are the result of a PCA transformation. Features V1, V2, ... V28 are the principal components obtained with PCA. Also, for the purpose of this study, Feature 'Time', containing the seconds elapsed between each transaction and the first transaction in the data set and the feature 'Amount', the transaction Amount were also added as  predictors. 
+
+Feature 'Class' is the response variable and it takes value 1 in case of fraud and 0 otherwise.
+
+## Modeling
+In order to build a model used to identify fraudulent transaction, three modeling techniques were considered: Neural Network models, k-nearest neighbor models, and generalized boosted regression models. 
+
+- Neural Network model were trained using all available predictor variables except time for binary classification. The sensitivity of the model is tested by 5-fold cross-validation.
+
+- k-nearest neighbor model were trained using all available predictor variables except time. The sensitivity of the model is tested by 5-fold cross-validation.
+
+- generalized boosted regression model was trained using all available predictor variables except time for binary classification. The sensitivity of the model is tested by 5-fold cross-validation.
+
+```{r data}
+install.packages("ROSE")
+library("tidyverse")
+library("caret")
+library("gbm")
+library("ROSE")
+
+# set seed 
+set.seed(1564)
+
+# read in data
+cc = read_csv(file = "https://fall-2019.stat432.org/analyses/data/cc-sub.csv")
+
+# randomly split data
+trn_idx = sample(nrow(cc), size = 0.5 * nrow(cc))
+cc_trn = cc[trn_idx, ]
+cc_tst = cc[-trn_idx, ]
+```
+
+```{r, include=FALSE}
+gbm_model = train(
+  Class ~ . - Time,
+  data = cc_trn,
+  method = 'gbm',
+  metric = 'Sens',
+  trControl = trainControl(
+    method = "cv",
+    number = 5,
+    classProbs = TRUE,
+    summaryFunction = twoClassSummary,
+    sampling = 'rose'
+  ),
+  verbose = FALSE
+)
+```
+
+```{r, include=FALSE}
+knn_model = train(
+  Class ~ . - Time,
+  data = cc_trn,
+  method = 'knn',
+  metric = 'Sens',
+  trControl = trainControl(
+    method = "cv",
+    number = 5,
+    classProbs = TRUE,
+    summaryFunction = twoClassSummary,
+    sampling = 'rose'
+  )
+)
+```
+
+```{r, include=FALSE}
+nnet_model = train(
+  Class ~ . - Time,
+  data = cc_trn,
+  method = 'nnet',
+  metric = 'Sens',
+  trControl = trainControl(
+    method = "cv",
+    number = 5,
+    classProbs = TRUE,
+    summaryFunction = twoClassSummary,
+    sampling = 'rose'
+  ),
+  verbose = FALSE
+)
+```
+
+***
+
+## Results
+```{r, include=FALSE}
+price_results = tibble(
+  "Model" = c(
+    "Neural Network",
+    "K-nearest Neighbors",
+    "generalized boosted regression"
+  ),
+  "Sensitive" = c(
+    max(gbm_model$results$Sens),
+    max(knn_model$results$Sens),
+    max(nnet_model$results$Sens)
+  )
+)
+```
+
+```{r}
+price_results
+```
+
+***
+# Discussion
+After applying the modeling technique, we have a neural network model featuring all available variables with a sensitivity of 'r max(nnet_model$results$Sens)', a k-nearest neighbors model featuring all available variables with a accuracy of 'r max(knn_model$results$Sens)' and a generalized boosted regression model featuring all available variables with 'r max(gbm_model$results$Sens)'. According to the result, we find the "best" model among those three is generalized boosted regression model because they have the highest true positive rate on detecting fraudulent transaction(sensitivity).
+
+The model we create might should be sufficient to make reasonable identification on fraudulent transaction because the sensitivity is very high in this case. However, considering the fact that consumer can have a huge lost if the system does not accurately identify a certain fraudulent transaction, additional methods and predictors should be added to improve credit cards' safety.
